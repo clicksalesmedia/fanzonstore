@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, ShoppingBag, Package, LogOut } from "lucide-react";
+import { LayoutDashboard, ShoppingBag, Package, Layers, LogOut } from "lucide-react";
 import { logoutAction } from "../auth-actions";
 
 const LINKS = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/admin/orders", label: "Orders", icon: ShoppingBag },
   { href: "/admin/products", label: "Products", icon: Package },
+  { href: "/admin/bundles", label: "Bundles", icon: Layers },
 ];
 
 export function AdminNav({ email }: { email?: string | null }) {

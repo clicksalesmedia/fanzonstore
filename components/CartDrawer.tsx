@@ -171,9 +171,22 @@ export function CartDrawer() {
                       </button>
                     </div>
 
-                    <p className="mt-0.5 text-xs text-mist">
-                      {line.size} · {line.color}
-                    </p>
+                    {line.bundle ? (
+                      <ul className="mt-0.5 space-y-0.5 text-xs text-mist">
+                        {line.bundle.components.map((c) => (
+                          <li key={`${c.productId}-${c.variantId}`}>
+                            <span className="text-pitch-300">{c.label}:</span>{" "}
+                            {c.size}
+                            {c.color ? ` · ${c.color}` : ""}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-0.5 text-xs text-mist">
+                        {line.size}
+                        {line.color ? ` · ${line.color}` : ""}
+                      </p>
+                    )}
 
                     <div className="mt-auto flex items-center justify-between pt-2">
                       <div className="flex items-center gap-1 rounded-full border border-white/10 bg-white/5 p-0.5">

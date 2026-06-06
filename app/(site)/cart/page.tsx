@@ -88,13 +88,31 @@ export default function CartPage() {
                         <h3 className="font-semibold leading-tight text-chalk">
                           {line.name}
                         </h3>
-                        <p className="mt-1 flex items-center gap-2 text-sm text-mist">
-                          <span className="font-sport tracking-wider uppercase">
-                            {line.size}
-                          </span>
-                          <span className="text-white/20">/</span>
-                          <span>{line.color}</span>
-                        </p>
+                        {line.bundle ? (
+                          <ul className="mt-1 space-y-0.5 text-sm text-mist">
+                            {line.bundle.components.map((c) => (
+                              <li key={`${c.productId}-${c.variantId}`}>
+                                <span className="font-sport uppercase tracking-wider text-pitch-300">
+                                  {c.label}:
+                                </span>{" "}
+                                {c.size}
+                                {c.color ? ` · ${c.color}` : ""}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="mt-1 flex items-center gap-2 text-sm text-mist">
+                            <span className="font-sport tracking-wider uppercase">
+                              {line.size}
+                            </span>
+                            {line.color && (
+                              <>
+                                <span className="text-white/20">/</span>
+                                <span>{line.color}</span>
+                              </>
+                            )}
+                          </p>
+                        )}
                       </div>
                       <button
                         type="button"

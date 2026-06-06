@@ -84,5 +84,47 @@ model OrderItem {
   qty       Int
   price     Int // unit price in cents
 
+  /// When this item is one component of a purchased bundle, the Bundle.id and the
+  /// component label ("Dad"/"Kid") so the two fulfillment rows can be grouped as
+  /// one set in admin. Null for normal single-product items.
+  bundleId    String?
+  bundleLabel String?
+
   @@index([orderId])
+}
+
+/// A storefront bundle: ONE product the shopper buys at a fixed set price, made
+/// of 2+ separate Printify products fulfilled as multiple line items in one
+/// order. Components reference live Printify products (not stored in the DB);
+/// only the bundle's own marketing + pricing live here.
+model Bundle {
+  id             String            @id @default(cuid())
+  slug           String            @unique
+  name           String
+  description    String
+  price          Int // FIXED set price in cents (authoritative)
+  compareAtPrice Int? // "was" price in cents
+  image          String // hero image URL
+  badge          String?
+  category       String
+  active         Boolean           @default(true)
+  components     BundleComponent[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([active])
+}
+
+model BundleComponent {
+  id              String   @id @default(cuid())
+  bundle          Bundle   @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+  bundleId        String
+  productId       String // Printify product id of the component shirt
+  label           String // "Dad" / "Kid"
+  sortOrder       Int      @default(0)
+  lockedVariantId Int? // optional: force a specific Printify variant (no customer choice)
+  allowedColors   String? // optional CSV of color names to restrict the picker
+  createdAt       DateTime @default(now())
+
+  @@index([bundleId])
 }

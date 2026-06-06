@@ -75,11 +75,26 @@ async function fulfillPaidCheckout(session: Stripe.Checkout.Session) {
     city: order.city,
     zip: order.zip,
   };
-  const lineItems: OrderLineItem[] = order.items.map((item) => ({
-    product_id: item.productId,
-    variant_id: Number(item.variantId),
-    quantity: item.qty,
-  }));
+  // Build Printify line items from the persisted order items. Bundle orders have
+  // one OrderItem per component, so they naturally fulfill as multiple line
+  // items. Merge any duplicates (same product+variant) so Printify gets a single
+  // line with the summed quantity.
+  const merged = new Map<string, OrderLineItem>();
+  for (const item of order.items) {
+    const variantId = Number(item.variantId);
+    const key = `${item.productId}-${variantId}`;
+    const existing = merged.get(key);
+    if (existing) {
+      existing.quantity += item.qty;
+    } else {
+      merged.set(key, {
+        product_id: item.productId,
+        variant_id: variantId,
+        quantity: item.qty,
+      });
+    }
+  }
+  const lineItems: OrderLineItem[] = [...merged.values()];
 
   try {
     const result = await createPrintifyOrder({

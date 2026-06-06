@@ -10,6 +10,7 @@ import {
 import { qualifiesForFreeShipping } from "@/lib/pricing";
 import { prisma } from "@/lib/db";
 import { stripe, stripeConfigured } from "@/lib/stripe";
+import type { BundleComponentSelection } from "@/lib/types";
 
 export const runtime = "nodejs";
 
@@ -19,20 +20,49 @@ interface CheckoutItem {
   qty: number;
   name?: string;
   image?: string;
-  price?: number; // dollars
+  price?: number; // dollars (ignored server-side)
   size?: string;
   color?: string;
+  /** present for bundle lines — carries the chosen component variants */
+  bundle?: {
+    bundleId: string;
+    components: BundleComponentSelection[];
+  };
 }
 
-interface ValidatedItem {
+/** A row to persist as OrderItem (prices in cents). */
+interface BuiltOrderItem {
   productId: string;
-  variantId: number;
-  qty: number;
+  variantId: string;
   name: string;
   image: string;
-  price: number;
   size: string;
   color: string;
+  qty: number;
+  price: number; // unit price in cents
+  bundleId?: string;
+  bundleLabel?: string;
+}
+
+interface StripeLine {
+  quantity: number;
+  price_data: {
+    currency: "usd";
+    unit_amount: number;
+    product_data: {
+      name: string;
+      images?: string[];
+      metadata?: Record<string, string>;
+    };
+  };
+}
+
+interface BuiltCheckout {
+  orderItems: BuiltOrderItem[];
+  /** every physical item for the Printify shipping quote (bundles flattened) */
+  printifyLineItems: OrderLineItem[];
+  stripeLines: StripeLine[];
+  subtotalCents: number;
 }
 
 function siteOrigin(req: Request) {
@@ -43,37 +73,158 @@ function siteOrigin(req: Request) {
   );
 }
 
-async function validateItems(items: CheckoutItem[]): Promise<ValidatedItem[]> {
-  const validated = await Promise.all(
-    items.map(async (item) => {
-      const productId = String(item.productId);
-      const variantId = Number(item.variantId);
-      const qty = Math.max(1, Number(item.qty) || 1);
+/**
+ * Validate ONE Printify product variant against the live admin API. Returns the
+ * authoritative name/image/price (cents)/size/color, or throws if unavailable.
+ */
+async function validateComponent(productId: string, variantId: number) {
+  if (!productId || !Number.isFinite(variantId)) {
+    throw new Error("One or more cart items are not Printify products.");
+  }
+  const product = await fetchPrintifyProductForAdmin(productId);
+  const variant = product?.variants.find((v) => v.id === variantId);
+  if (!product || !variant || !variant.isEnabled || !variant.isAvailable) {
+    throw new Error("One or more cart items are no longer available.");
+  }
+  return {
+    name: product.title,
+    image: product.image,
+    price: variant.price, // cents
+    size: variant.size,
+    color: variant.color,
+  };
+}
 
-      if (!productId || !Number.isFinite(variantId)) {
-        throw new Error("One or more cart items are not Printify products.");
+/**
+ * Turn the raw cart items into everything checkout needs. Singles are priced
+ * from Printify; bundles are priced from the DB (the FIXED set price, never the
+ * client) and expanded into one OrderItem per component so the webhook fulfills
+ * them as separate Printify line items. The fixed price is split across the
+ * components (floor + remainder-to-first) so the OrderItem prices sum EXACTLY to
+ * the bundle price — keeping `Stripe amount_total === order.total`.
+ */
+async function buildCheckout(items: CheckoutItem[]): Promise<BuiltCheckout> {
+  const orderItems: BuiltOrderItem[] = [];
+  const printifyLineItems: OrderLineItem[] = [];
+  const stripeLines: StripeLine[] = [];
+  let subtotalCents = 0;
+
+  for (const item of items) {
+    const qty = Math.max(1, Number(item.qty) || 1);
+
+    if (item.bundle) {
+      const { bundleId, components } = item.bundle;
+      if (!bundleId || !components?.length) {
+        throw new Error("Invalid bundle in cart.");
       }
 
-      const product = await fetchPrintifyProductForAdmin(productId);
-      const variant = product?.variants.find((v) => v.id === variantId);
-      if (!product || !variant || !variant.isEnabled || !variant.isAvailable) {
-        throw new Error("One or more cart items are no longer available.");
+      const bundle = await prisma.bundle.findUnique({
+        where: { id: bundleId },
+        include: { components: true },
+      });
+      if (!bundle || !bundle.active) {
+        throw new Error("This set is no longer available.");
       }
 
-      return {
-        productId,
-        variantId,
-        qty,
-        name: product.title,
-        image: product.image,
-        price: variant.price,
-        size: variant.size,
-        color: variant.color,
-      };
-    }),
-  );
+      // Anti-tamper: submitted components must match the configured set.
+      const configured = new Map(
+        bundle.components.map((c) => [c.productId, c]),
+      );
+      if (components.length !== bundle.components.length) {
+        throw new Error("This set has changed. Please rebuild it.");
+      }
 
-  return validated;
+      // Split the fixed bundle price (cents) across components.
+      const n = components.length;
+      const base = Math.floor(bundle.price / n);
+      const remainder = bundle.price - base * n;
+
+      for (let idx = 0; idx < components.length; idx++) {
+        const comp = components[idx];
+        const cfg = configured.get(comp.productId);
+        if (!cfg) {
+          throw new Error("This set has changed. Please rebuild it.");
+        }
+        const variantId = Number(comp.variantId);
+        if (cfg.lockedVariantId != null && cfg.lockedVariantId !== variantId) {
+          throw new Error("This set has changed. Please rebuild it.");
+        }
+
+        const v = await validateComponent(comp.productId, variantId);
+        const unitPrice = base + (idx === 0 ? remainder : 0);
+
+        orderItems.push({
+          productId: comp.productId,
+          variantId: String(variantId),
+          name: v.name,
+          image: v.image,
+          size: v.size,
+          color: v.color,
+          qty,
+          price: unitPrice,
+          bundleId: bundle.id,
+          bundleLabel: cfg.label,
+        });
+        printifyLineItems.push({
+          product_id: comp.productId,
+          variant_id: variantId,
+          quantity: qty,
+        });
+      }
+
+      // ONE Stripe line at the fixed set price (shopper sees a single price).
+      stripeLines.push({
+        quantity: qty,
+        price_data: {
+          currency: "usd",
+          unit_amount: bundle.price,
+          product_data: {
+            name: bundle.name,
+            images: bundle.image.startsWith("http") ? [bundle.image] : undefined,
+            metadata: { bundleId: bundle.id },
+          },
+        },
+      });
+      subtotalCents += bundle.price * qty;
+      continue;
+    }
+
+    // Single product.
+    const productId = String(item.productId);
+    const variantId = Number(item.variantId);
+    const v = await validateComponent(productId, variantId);
+
+    orderItems.push({
+      productId,
+      variantId: String(variantId),
+      name: v.name,
+      image: v.image,
+      size: v.size,
+      color: v.color,
+      qty,
+      price: v.price,
+    });
+    printifyLineItems.push({
+      product_id: productId,
+      variant_id: variantId,
+      quantity: qty,
+    });
+    stripeLines.push({
+      quantity: qty,
+      price_data: {
+        currency: "usd",
+        unit_amount: v.price,
+        product_data: {
+          name: v.name,
+          images: v.image.startsWith("http") ? [v.image] : undefined,
+          metadata: { productId, variantId: String(variantId) },
+        },
+      },
+    });
+    subtotalCents += v.price * qty;
+  }
+
+  return { orderItems, printifyLineItems, stripeLines, subtotalCents };
 }
 
 /**
@@ -128,9 +279,9 @@ export async function POST(req: Request) {
     );
   }
 
-  let validatedItems: ValidatedItem[];
+  let built: BuiltCheckout;
   try {
-    validatedItems = await validateItems(items);
+    built = await buildCheckout(items);
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Invalid cart item" },
@@ -138,26 +289,19 @@ export async function POST(req: Request) {
     );
   }
 
-  const lineItems: OrderLineItem[] = validatedItems.map((i) => ({
-    product_id: i.productId,
-    variant_id: i.variantId,
-    quantity: i.qty,
-  }));
-
+  const { orderItems, printifyLineItems, stripeLines, subtotalCents } = built;
   const externalId = `fanzonstore-${Date.now()}`;
-  const subtotalCents = validatedItems.reduce(
-    (sum, i) => sum + i.price * i.qty,
-    0,
-  );
 
   // Authoritative shipping: recompute from Printify server-side (never trust a
   // client-sent shipping number). getShippingCost returns CENTS already.
-  // On failure, fall back to 0 so an order is never blocked — flag for review.
   let shippingCents = 0;
   let shippingMethod: number = SHIPPING_METHOD.standard;
   if (!qualifiesForFreeShipping(subtotalCents)) {
     try {
-      const rates = await getShippingCost({ lineItems, address });
+      const rates = await getShippingCost({
+        lineItems: printifyLineItems,
+        address,
+      });
       if (typeof rates.standard === "number") {
         shippingCents = rates.standard;
         shippingMethod = SHIPPING_METHOD.standard;
@@ -197,15 +341,17 @@ export async function POST(req: Request) {
       shipping: shippingCents,
       total: totalCents,
       items: {
-        create: validatedItems.map((i) => ({
+        create: orderItems.map((i) => ({
           productId: i.productId,
-          variantId: String(i.variantId),
+          variantId: i.variantId,
           name: i.name,
           image: i.image,
           size: i.size,
           color: i.color,
           qty: i.qty,
           price: i.price,
+          bundleId: i.bundleId ?? null,
+          bundleLabel: i.bundleLabel ?? null,
         })),
       },
     },
@@ -218,27 +364,13 @@ export async function POST(req: Request) {
       customer_email: String(address.email),
       submit_type: "pay",
       line_items: [
-        ...validatedItems.map((item) => ({
-          quantity: item.qty,
-          price_data: {
-            currency: "usd",
-            unit_amount: item.price,
-            product_data: {
-              name: item.name,
-              images: item.image.startsWith("http") ? [item.image] : undefined,
-              metadata: {
-                productId: item.productId,
-                variantId: String(item.variantId),
-              },
-            },
-          },
-        })),
+        ...stripeLines,
         ...(shippingCents > 0
           ? [
               {
                 quantity: 1,
                 price_data: {
-                  currency: "usd",
+                  currency: "usd" as const,
                   unit_amount: shippingCents,
                   product_data: { name: "Standard shipping" },
                 },

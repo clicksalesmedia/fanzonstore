@@ -80,13 +80,41 @@ export interface Country {
   accent: string;
 }
 
-export interface CartLine {
+/** One chosen component shirt inside a bundle cart line. */
+export interface BundleComponentSelection {
+  /** Printify product id of the component shirt */
   productId: string;
+  /** Printify numeric variant id */
+  variantId: number;
+  /** "Dad" / "Kid" */
+  label: string;
+  size: string;
+  color: string;
+  /** component product name (for display) */
+  name: string;
+  /** component image (for display) */
+  image: string;
+}
+
+/** Present only on a bundle cart line; carries the chosen component variants. */
+export interface CartLineBundle {
+  /** Bundle.id in the DB */
+  bundleId: string;
+  components: BundleComponentSelection[];
+}
+
+export interface CartLine {
+  /** for bundles this is "bundle:<bundleId>" */
+  productId: string;
+  /** merge/remove key; for bundles a deterministic composite (see store/cart) */
   variantId: string;
   name: string;
   image: string;
+  /** USD (dollars). For bundles, the FIXED set price — client display only. */
   price: number;
   size: string;
   color: string;
   qty: number;
+  /** present ONLY for bundle lines */
+  bundle?: CartLineBundle;
 }

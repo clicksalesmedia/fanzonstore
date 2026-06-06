@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Reveal } from "@/components/Reveal";
 import ShopGrid from "@/components/shop/ShopGrid";
 import { getCatalog } from "@/lib/catalog";
+import { getBundles, bundleToProductCard } from "@/lib/bundles";
 
 export const metadata: Metadata = {
   title: "World Cup 2026 Fan Gear",
@@ -27,7 +28,9 @@ function ShopGridFallback() {
 }
 
 export default async function ShopPage() {
-  const products = await getCatalog();
+  const [catalog, bundles] = await Promise.all([getCatalog(), getBundles()]);
+  // Bundles (matching sets) lead the grid, then the rest of the catalog.
+  const products = [...bundles.map(bundleToProductCard), ...catalog];
   return (
     <main className="pt-28 sm:pt-32">
       <Reveal as="header" className="container-page pb-10 text-center">

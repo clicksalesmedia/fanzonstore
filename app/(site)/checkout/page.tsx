@@ -94,11 +94,17 @@ export default function CheckoutPage() {
           signal: ac.signal,
           body: JSON.stringify({
             address: { ...data, country: US_COUNTRY.code },
-            items: lines.map((l) => ({
-              productId: l.productId,
-              variantId: l.variantId,
-              qty: l.qty,
-            })),
+            // Flatten bundles into their component shirts so the quote covers
+            // every physical item Printify will ship.
+            items: lines.flatMap((l) =>
+              l.bundle
+                ? l.bundle.components.map((c) => ({
+                    productId: c.productId,
+                    variantId: String(c.variantId),
+                    qty: l.qty,
+                  }))
+                : [{ productId: l.productId, variantId: l.variantId, qty: l.qty }],
+            ),
           }),
         });
         const json = await res.json();
@@ -135,6 +141,7 @@ export default function CheckoutPage() {
             price: l.price,
             size: l.size,
             color: l.color,
+            bundle: l.bundle,
           })),
         }),
       });
@@ -364,9 +371,21 @@ export default function CheckoutPage() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm text-chalk">{l.name}</p>
-                      <p className="font-sport text-[0.7rem] uppercase tracking-wider text-mist">
-                        {l.size} · {l.color}
-                      </p>
+                      {l.bundle ? (
+                        <p className="font-sport text-[0.7rem] uppercase tracking-wider text-mist">
+                          {l.bundle.components
+                            .map(
+                              (c) =>
+                                `${c.label} ${c.size}${c.color ? ` ${c.color}` : ""}`,
+                            )
+                            .join(" · ")}
+                        </p>
+                      ) : (
+                        <p className="font-sport text-[0.7rem] uppercase tracking-wider text-mist">
+                          {l.size}
+                          {l.color ? ` · ${l.color}` : ""}
+                        </p>
+                      )}
                     </div>
                     <p className="font-sport text-sm text-chalk">{formatPrice(l.price * l.qty)}</p>
                   </li>

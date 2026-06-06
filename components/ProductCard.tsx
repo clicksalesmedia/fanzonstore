@@ -24,6 +24,11 @@ export function ProductCard({
     product.compareAtPrice !== undefined &&
     product.compareAtPrice > product.price;
   const isFlatPrintifyMockup = product.image.includes("images-api.printify.com");
+  // Bundles are adapted into the Product shape with a "bundle:" id; they have no
+  // variants (the shopper picks each component on the detail page), so they route
+  // to /bundle/[slug] and skip quick-add.
+  const isBundle = product.id.startsWith("bundle:");
+  const href = isBundle ? `/bundle/${product.slug}` : `/product/${product.slug}`;
 
   function handleQuickAdd() {
     const variant = product.variants[0];
@@ -64,14 +69,30 @@ export function ProductCard({
           </div>
         )}
 
-        <button
-          type="button"
-          onClick={handleQuickAdd}
-          aria-label={`Quick add ${product.name} to cart`}
-          className="absolute bottom-3 right-3 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full bg-pitch-400 text-ink-950 shadow-lg transition-all duration-200 hover:bg-pitch-300 cursor-pointer glow-pitch focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pitch-300 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-950 translate-y-0 opacity-100 md:translate-y-2 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100 focus-visible:translate-y-0 focus-visible:opacity-100"
-        >
-          <Plus className="h-5 w-5" strokeWidth={2.5} />
-        </button>
+        {isBundle && (
+          <div className="absolute right-3 top-3 z-10 rounded-full bg-ink-950/70 px-2.5 py-1 font-sport text-[10px] font-semibold uppercase tracking-wider text-pitch-300 backdrop-blur">
+            Matching set
+          </div>
+        )}
+
+        {isBundle ? (
+          <Link
+            href={href}
+            aria-label={`View ${product.name}`}
+            className="absolute bottom-3 right-3 z-10 inline-flex h-11 items-center justify-center gap-1.5 rounded-full bg-pitch-400 px-4 font-sport text-xs font-semibold uppercase tracking-wide text-ink-950 shadow-lg transition-all duration-200 hover:bg-pitch-300 cursor-pointer glow-pitch focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pitch-300 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-950"
+          >
+            Shop set
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={handleQuickAdd}
+            aria-label={`Quick add ${product.name} to cart`}
+            className="absolute bottom-3 right-3 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full bg-pitch-400 text-ink-950 shadow-lg transition-all duration-200 hover:bg-pitch-300 cursor-pointer glow-pitch focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pitch-300 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-950 translate-y-0 opacity-100 md:translate-y-2 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100 focus-visible:translate-y-0 focus-visible:opacity-100"
+          >
+            <Plus className="h-5 w-5" strokeWidth={2.5} />
+          </button>
+        )}
       </div>
 
       <div className="flex flex-1 flex-col gap-2 p-4">
@@ -81,7 +102,7 @@ export function ProductCard({
 
         <h3 className="min-h-[2.75rem] text-base font-semibold leading-snug text-chalk">
           <Link
-            href={`/product/${product.slug}`}
+            href={href}
             className="cursor-pointer transition-colors duration-200 after:absolute after:inset-0 hover:text-pitch-300 focus-visible:outline-none focus-visible:text-pitch-300"
           >
             {product.name}
