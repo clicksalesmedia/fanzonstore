@@ -138,6 +138,34 @@ const HIGHLIGHTS: Record<string, string[]> = {
   jerseys: ["Breathable fan layer", "Made for the faithful", "Printed on demand"],
 };
 
+const PRODUCT_COPY_OVERRIDES: Record<string, { name: string; description: string }> = {
+  "6a2404648ca667581803202e": {
+    name: "One Nation, One Team USA 2026 Soccer Tee",
+    description:
+      "For the fans who feel the anthem before the whistle. This USA 2026 soccer tee brings everyone under one flag, one team, and one shared summer of belief. A proud everyday shirt for watch parties, street celebrations, and anyone who wants to belong to the moment.",
+  },
+  "6a240312ebab40861f089e07": {
+    name: "Here for '26 Kids USA Soccer Tee",
+    description:
+      "Made for the little supporter stepping into his first big 2026 soccer summer beside Dad. This kids heavy cotton tee is part of the father-and-son matching set: pair it with the Was There '94 Dad tee to turn family history into a new matchday memory.",
+  },
+  "6a240049beda42506c04c9af": {
+    name: "Was There '94 Dad USA Soccer Tee",
+    description:
+      "For the dad who remembers 1994 and now gets to pass the feeling down in 2026. This unisex heavy cotton tee is part of the father-and-son matching set: pair it with the Here for '26 kids tee and wear the story together.",
+  },
+  "6a231f5b7eee7f279102d21e": {
+    name: "America's Time 1994-2026 Soccer Tee",
+    description:
+      "From the memories of 1994 to the promise of 2026, this USA soccer tee is for fans who believe this summer belongs to all of us. Wear it for the watch party, the family gathering, and the feeling that your country is part of something bigger.",
+  },
+  "6a231090ea7700f32b032e58": {
+    name: "America's Time USA Trophy Soccer Tee",
+    description:
+      "A bold USA soccer trophy tee for supporters ready to dream out loud. Built for 2026 pride, shared chants, and the feeling of standing with millions of fans who believe America's time is here.",
+  },
+};
+
 function stripHtml(s: string) {
   return s.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
 }
@@ -213,7 +241,8 @@ function emotionalDescription(p: PFProduct, category: string, displayName: strin
 export function mapProduct(p: PFProduct): Product {
   const category = tag(p.tags ?? [], "category") ?? inferCategory(p);
   const badge = tag(p.tags ?? [], "badge") as Product["badge"] | undefined;
-  const name = shortPrintifyTitle(p.title, category);
+  const copyOverride = PRODUCT_COPY_OVERRIDES[p.id];
+  const name = copyOverride?.name ?? shortPrintifyTitle(p.title, category);
   const enabled = p.variants.filter((v) => v.is_enabled);
   const source = enabled.length ? enabled : p.variants;
 
@@ -268,7 +297,7 @@ export function mapProduct(p: PFProduct): Product {
     hoverImage: mockups[1],
     gallery: mockups.slice(0, 6),
     images,
-    description: emotionalDescription(p, category, name),
+    description: copyOverride?.description ?? emotionalDescription(p, category, name),
     highlights: HIGHLIGHTS[category] ?? HIGHLIGHTS.tees,
     sizes,
     colors,
