@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import type { Product } from "@/lib/types";
 import { categoryLabels } from "@/lib/products";
-import { cn, formatPrice } from "@/lib/utils";
+import { cn, formatPrice, isPrintifyImage } from "@/lib/utils";
 import { useCart } from "@/store/cart";
 import { Badge } from "@/components/ui/Badge";
 import { Rating } from "@/components/Rating";
@@ -23,6 +23,7 @@ export function ProductCard({
   const onSale =
     product.compareAtPrice !== undefined &&
     product.compareAtPrice > product.price;
+  const isMockupImage = isPrintifyImage(product.image);
 
   function handleQuickAdd() {
     const variant = product.variants[0];
@@ -42,14 +43,17 @@ export function ProductCard({
 
   return (
     <article className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-white/10 bg-ink-900/60 transition-all duration-300 hover:-translate-y-1 hover:border-pitch-400/40 hover:shadow-[0_20px_60px_-20px_rgba(0,0,0,0.7)] focus-within:border-pitch-400/40">
-      <div className="relative aspect-square overflow-hidden bg-gradient-to-b from-white to-zinc-100">
+      <div className="relative aspect-square overflow-hidden bg-[radial-gradient(circle_at_50%_42%,#ffffff_0%,#f7f7f2_48%,#e9ece5_100%)]">
         <Image
           src={product.image}
           alt={product.name}
           fill
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
           priority={priority}
-          className="object-cover object-center transition-transform duration-500 ease-out group-hover:scale-105"
+          className={cn(
+            "object-center transition-transform duration-500 ease-out group-hover:scale-105",
+            isMockupImage ? "object-contain p-5 sm:p-6" : "object-cover",
+          )}
         />
 
         {product.badge && (
@@ -73,7 +77,7 @@ export function ProductCard({
           {categoryLabels[product.category] ?? product.category}
         </span>
 
-        <h3 className="text-base font-semibold leading-snug text-chalk">
+        <h3 className="min-h-[2.75rem] text-base font-semibold leading-snug text-chalk">
           <Link
             href={`/product/${product.slug}`}
             className="cursor-pointer transition-colors duration-200 after:absolute after:inset-0 hover:text-pitch-300 focus-visible:outline-none focus-visible:text-pitch-300"
@@ -82,9 +86,9 @@ export function ProductCard({
           </Link>
         </h3>
 
-        <Rating rating={product.rating} reviews={product.reviews} />
+        <Rating rating={product.rating} reviews={product.reviews} className="min-h-5" />
 
-        <div className="mt-auto flex items-baseline gap-2 pt-1">
+        <div className="mt-auto flex min-h-8 items-baseline gap-2 pt-1">
           <span className="font-sport text-lg font-semibold tracking-wide text-chalk">
             {formatPrice(product.price)}
           </span>

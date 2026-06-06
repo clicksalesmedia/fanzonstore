@@ -133,10 +133,7 @@ export default function ShopGrid({ products }: { products: Product[] }) {
           </Link>
         </div>
       ) : (
-        <Reveal
-          stagger
-          className="grid grid-cols-2 auto-rows-fr gap-4 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4"
-        >
+        <Reveal className="grid grid-cols-2 auto-rows-fr gap-4 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((product, i) => (
             <ProductCard
               key={product.id}
