@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import type { Product } from "@/lib/types";
 import { categoryLabels } from "@/lib/products";
-import { cn, formatPrice, isPrintifyImage } from "@/lib/utils";
+import { cn, formatPrice } from "@/lib/utils";
 import { useCart } from "@/store/cart";
 import { Badge } from "@/components/ui/Badge";
 import { Rating } from "@/components/Rating";
@@ -23,7 +23,7 @@ export function ProductCard({
   const onSale =
     product.compareAtPrice !== undefined &&
     product.compareAtPrice > product.price;
-  const isMockupImage = isPrintifyImage(product.image);
+  const isFlatPrintifyMockup = product.image.includes("images-api.printify.com");
 
   function handleQuickAdd() {
     const variant = product.variants[0];
@@ -51,8 +51,10 @@ export function ProductCard({
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
           priority={priority}
           className={cn(
-            "object-center transition-transform duration-500 ease-out group-hover:scale-105",
-            isMockupImage ? "object-contain p-5 sm:p-6" : "object-cover",
+            "object-cover object-center transition-transform duration-500 ease-out",
+            isFlatPrintifyMockup
+              ? "scale-[1.42] group-hover:scale-[1.48]"
+              : "group-hover:scale-105",
           )}
         />
 
