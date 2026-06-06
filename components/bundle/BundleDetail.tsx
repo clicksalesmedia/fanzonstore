@@ -1,19 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import { Check, Gift, ShieldCheck, Truck } from "lucide-react";
 import type {
   BundleComponentSelection,
   CartLine,
   Product,
+  ProductImage,
   ProductVariant,
 } from "@/lib/types";
 import { cn, formatPrice } from "@/lib/utils";
 import { useCart } from "@/store/cart";
 import { Reveal } from "@/components/Reveal";
 import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
+import { ProductGallery } from "@/components/product/ProductGallery";
 
 interface BundleSummary {
   id: string;
@@ -68,11 +68,20 @@ function resolveVariant(
   );
 }
 
+function selectVariantImage(product: Product, variant: ProductVariant) {
+  const match = product.images?.find((im) =>
+    im.variantIds.includes(variant.printfulVariantId),
+  );
+  return match?.src ?? product.image;
+}
+
 export function BundleDetail({
   bundle,
+  gallery,
   components,
 }: {
   bundle: BundleSummary;
+  gallery: ProductImage[];
   components: DetailComponent[];
 }) {
   const add = useCart((s) => s.add);
@@ -118,7 +127,7 @@ export function BundleDetail({
         size: v.size,
         color: v.color,
         name: c.product.name,
-        image: c.product.image,
+        image: selectVariantImage(c.product, v),
       };
     });
 
@@ -148,45 +157,15 @@ export function BundleDetail({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-14">
-      {/* Gallery: bundle hero + each component image */}
+    <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)] lg:items-start lg:gap-14">
+      {/* Gallery: live bundle hero + component mockups */}
       <Reveal>
-        <div className="flex flex-col gap-4">
-          <div className="relative aspect-square overflow-hidden rounded-2xl border border-white/10 bg-[radial-gradient(circle_at_50%_42%,#ffffff_0%,#f7f7f2_48%,#e9ece5_100%)]">
-            <Image
-              src={bundle.image}
-              alt={bundle.name}
-              fill
-              sizes="(max-width: 1024px) 100vw, 50vw"
-              priority
-              className="object-cover object-center"
-            />
-            {badge && (
-              <div className="absolute left-4 top-4 z-10">
-                <Badge badge={badge} />
-              </div>
-            )}
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            {components.map((c) => (
-              <div
-                key={c.label}
-                className="relative aspect-square overflow-hidden rounded-xl border border-white/10 bg-[radial-gradient(circle_at_50%_42%,#ffffff_0%,#f7f7f2_48%,#e9ece5_100%)]"
-              >
-                <Image
-                  src={c.product.image}
-                  alt={`${c.label} — ${c.product.name}`}
-                  fill
-                  sizes="(max-width: 1024px) 50vw, 25vw"
-                  className="object-cover object-center"
-                />
-                <span className="absolute bottom-2 left-2 rounded-full bg-ink-950/75 px-2.5 py-1 font-sport text-[10px] font-semibold uppercase tracking-wider text-pitch-300 backdrop-blur">
-                  {c.label}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
+        <ProductGallery
+          images={gallery}
+          fallbackImage={bundle.image}
+          name={bundle.name}
+          badge={badge}
+        />
       </Reveal>
 
       {/* Info + per-component pickers. NOTE: not wrapped in a staggered Reveal —
@@ -198,7 +177,7 @@ export function BundleDetail({
           {components.length} pieces
         </span>
 
-        <h1 className="mt-2 font-display text-4xl leading-[0.95] text-chalk sm:text-5xl">
+        <h1 className="mt-2 text-balance font-display text-4xl leading-[0.95] text-chalk sm:text-5xl">
           {bundle.name}
         </h1>
 
@@ -218,7 +197,7 @@ export function BundleDetail({
           )}
         </div>
 
-        <p className="mt-5 max-w-prose text-mist leading-relaxed">
+        <p className="mt-5 max-w-prose leading-relaxed text-mist">
           {bundle.description}
         </p>
 
@@ -233,7 +212,7 @@ export function BundleDetail({
             return (
               <div
                 key={c.label}
-                className="rounded-2xl border border-white/10 bg-ink-900/40 p-5"
+                className="rounded-2xl border border-white/10 bg-ink-900/40 p-4 sm:p-5"
               >
                 <div className="flex items-center justify-between">
                   <span className="font-sport text-sm uppercase tracking-wider text-chalk">

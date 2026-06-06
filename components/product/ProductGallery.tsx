@@ -27,6 +27,13 @@ function dedupe(images: ProductImage[]): ProductImage[] {
   });
 }
 
+function imageFitClass(src: string, mode: "main" | "thumb") {
+  if (!src.includes("images-api.printify.com")) return "object-cover";
+  return mode === "main"
+    ? "object-contain p-3 sm:p-6"
+    : "object-contain p-1.5 sm:p-2";
+}
+
 export function ProductGallery({
   images,
   fallbackImage,
@@ -41,7 +48,7 @@ export function ProductGallery({
     const all = dedupe(images ?? []);
     if (activeVariantId != null) {
       const matched = all.filter((im) => im.variantIds.includes(activeVariantId));
-      if (matched.length) return matched;
+      if (matched.length) return dedupe([...matched, ...all]);
     }
     if (all.length) return all;
     return [{ src: fallbackImage, variantIds: [] }];
@@ -91,10 +98,10 @@ export function ProductGallery({
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3 sm:gap-4">
       {/* Main image */}
       <div
-        className="group relative aspect-square overflow-hidden rounded-3xl glass"
+        className="group relative aspect-[4/5] overflow-hidden rounded-2xl border border-white/10 bg-[radial-gradient(circle_at_50%_42%,#ffffff_0%,#f7f7f2_48%,#e9ece5_100%)] sm:aspect-square sm:rounded-3xl"
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
         role="region"
@@ -110,7 +117,8 @@ export function ProductGallery({
           sizes="(max-width: 1024px) 100vw, 50vw"
           onLoad={() => setLoaded(true)}
           className={cn(
-            "object-cover object-center transition-all duration-500 ease-out group-hover:scale-105",
+            "object-center transition-all duration-500 ease-out group-hover:scale-105",
+            imageFitClass(active.src, "main"),
             loaded ? "opacity-100" : "opacity-0",
           )}
         />
@@ -123,7 +131,7 @@ export function ProductGallery({
 
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink-950/40 via-transparent to-transparent"
+          className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink-950/25 via-transparent to-transparent"
         />
 
         {hasMultiple && (
@@ -132,7 +140,7 @@ export function ProductGallery({
               type="button"
               aria-label="Previous image"
               onClick={() => go(clampedIndex - 1)}
-              className="absolute left-3 top-1/2 z-10 inline-flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-ink-950/50 text-chalk backdrop-blur-sm transition-all duration-200 hover:bg-ink-950/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pitch-400 sm:opacity-0 sm:group-hover:opacity-100"
+              className="absolute left-3 top-1/2 z-10 inline-flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-ink-950/60 text-chalk backdrop-blur-sm transition-all duration-200 hover:bg-ink-950/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pitch-400 md:opacity-0 md:group-hover:opacity-100"
             >
               <ChevronLeft className="h-5 w-5" strokeWidth={2.5} />
             </button>
@@ -140,7 +148,7 @@ export function ProductGallery({
               type="button"
               aria-label="Next image"
               onClick={() => go(clampedIndex + 1)}
-              className="absolute right-3 top-1/2 z-10 inline-flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-ink-950/50 text-chalk backdrop-blur-sm transition-all duration-200 hover:bg-ink-950/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pitch-400 sm:opacity-0 sm:group-hover:opacity-100"
+              className="absolute right-3 top-1/2 z-10 inline-flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-ink-950/60 text-chalk backdrop-blur-sm transition-all duration-200 hover:bg-ink-950/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pitch-400 md:opacity-0 md:group-hover:opacity-100"
             >
               <ChevronRight className="h-5 w-5" strokeWidth={2.5} />
             </button>
@@ -156,7 +164,7 @@ export function ProductGallery({
       {hasMultiple && (
         <div
           ref={thumbsRef}
-          className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] sm:gap-3 [&::-webkit-scrollbar]:hidden"
           role="tablist"
           aria-label="Product image thumbnails"
         >
@@ -171,7 +179,7 @@ export function ProductGallery({
                 aria-label={`View image ${i + 1}`}
                 onClick={() => go(i)}
                 className={cn(
-                  "relative aspect-square w-20 shrink-0 overflow-hidden rounded-2xl transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-950 sm:w-24",
+                  "relative aspect-square w-16 shrink-0 overflow-hidden rounded-xl bg-white transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-950 sm:w-20 sm:rounded-2xl lg:w-24",
                   selected
                     ? "ring-2 ring-pitch-400"
                     : "ring-1 ring-white/15 opacity-70 hover:opacity-100 hover:ring-white/40",
@@ -182,7 +190,7 @@ export function ProductGallery({
                   alt=""
                   fill
                   sizes="96px"
-                  className="object-cover object-center"
+                  className={cn("object-center", imageFitClass(im.src, "thumb"))}
                 />
               </button>
             );

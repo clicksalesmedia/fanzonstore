@@ -49,3 +49,4 @@ Screenshot*.png
 /DEPLOY.md
 /scripts/deploy.sh
 .claude/
+.codex/

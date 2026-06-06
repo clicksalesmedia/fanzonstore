@@ -95,18 +95,17 @@ export function BundleForm({
           </label>
           <label className="sm:col-span-2">
             <span className="mb-1 block text-sm text-neutral-300">
-              Hero image URL
+              Hero image URL (optional)
             </span>
             <input
               name="image"
               defaultValue={bundle?.image}
               placeholder="https://images-api.printify.com/…"
-              required
               className={inputClass}
             />
             <span className="mt-1 block text-xs text-neutral-500">
-              Paste a product mockup URL (right-click a component image →
-              &ldquo;Copy image address&rdquo;), or any hosted image.
+              Leave blank to use the first selected Printify product image. Paste
+              a URL only when you want to override the bundle thumbnail.
             </span>
           </label>
           <label>

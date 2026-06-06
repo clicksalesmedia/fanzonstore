@@ -54,9 +54,9 @@ export default async function ProductPage({
   const related = await getRelatedProducts(slug);
 
   return (
-    <main className="container-page py-10 sm:py-14">
+    <main className="container-page pb-16 pt-28 sm:pb-20 sm:pt-32">
       {/* Breadcrumb */}
-      <nav aria-label="Breadcrumb" className="mb-8">
+      <nav aria-label="Breadcrumb" className="mb-6 sm:mb-8">
         <ol className="flex flex-wrap items-center gap-1.5 font-sport text-xs uppercase tracking-wider text-mist">
           <li>
             <Link
@@ -76,7 +76,7 @@ export default async function ProductPage({
             </Link>
           </li>
           <ChevronRight className="h-3.5 w-3.5 text-white/30" aria-hidden="true" />
-          <li aria-current="page" className="text-chalk">
+          <li aria-current="page" className="min-w-0 truncate text-chalk">
             {product.name}
           </li>
         </ol>
@@ -86,7 +86,7 @@ export default async function ProductPage({
 
       {/* You may also like */}
       {related.length > 0 && (
-        <section className="mt-20 sm:mt-28">
+        <section className="mt-16 sm:mt-24 lg:mt-28">
           <Reveal>
             <h2 className="font-display text-3xl text-chalk sm:text-4xl">
               You may also <span className="text-gradient-pitch">like</span>

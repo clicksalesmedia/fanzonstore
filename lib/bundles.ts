@@ -1,6 +1,6 @@
 import "server-only";
 import type { Bundle, BundleComponent } from "@prisma/client";
-import type { Product } from "./types";
+import type { Product, ProductImage } from "./types";
 import { prisma } from "./db";
 import { fetchPrintifyProduct } from "./printify";
 
@@ -58,7 +58,33 @@ function castBadge(badge: string | null): Product["badge"] | undefined {
  * collides with a Printify product id and so ProductCard can route it to
  * /bundle/[slug] instead of /product/[slug].
  */
-export function bundleToProductCard(bundle: BundleWithComponents): Product {
+function bundleFallbackImage(bundle: BundleWithComponents) {
+  return bundle.image || "/images/products/tee-white.webp";
+}
+
+function productGalleryImages(product: Product): ProductImage[] {
+  const images = product.images?.length
+    ? product.images
+    : product.gallery?.map((src) => ({ src, variantIds: [] })) ?? [];
+  if (!images.some((im) => im.src === product.image)) {
+    return [{ src: product.image, variantIds: [] }, ...images];
+  }
+  return images;
+}
+
+function dedupeImages(images: ProductImage[]): ProductImage[] {
+  const seen = new Set<string>();
+  return images.filter((im) => {
+    if (!im.src || seen.has(im.src)) return false;
+    seen.add(im.src);
+    return true;
+  });
+}
+
+export function bundleToProductCard(
+  bundle: BundleWithComponents,
+  image = bundleFallbackImage(bundle),
+): Product {
   return {
     id: `bundle:${bundle.id}`,
     slug: bundle.slug,
@@ -67,7 +93,7 @@ export function bundleToProductCard(bundle: BundleWithComponents): Product {
     price: bundle.price / 100,
     compareAtPrice:
       bundle.compareAtPrice != null ? bundle.compareAtPrice / 100 : undefined,
-    image: bundle.image,
+    image,
     description: bundle.description,
     highlights: [],
     sizes: [],
@@ -93,6 +119,8 @@ export interface BundleDetailComponent {
 export interface BundleDetail {
   bundle: BundleWithComponents;
   components: BundleDetailComponent[];
+  gallery: ProductImage[];
+  image: string;
 }
 
 function parseAllowedColors(csv: string | null): string[] | null {
@@ -147,8 +175,22 @@ export async function getBundleDetail(
     }),
   );
 
+  const components = resolved.filter(
+    (c): c is BundleDetailComponent => c !== null,
+  );
+  const liveGallery = dedupeImages(
+    components.flatMap((c) => productGalleryImages(c.product)),
+  );
+  const image = bundle.image || liveGallery[0]?.src || bundleFallbackImage(bundle);
+  const gallery = dedupeImages([
+    { src: image, variantIds: [], position: "set" },
+    ...liveGallery,
+  ]);
+
   return {
     bundle,
-    components: resolved.filter((c): c is BundleDetailComponent => c !== null),
+    components,
+    gallery,
+    image,
   };
 }

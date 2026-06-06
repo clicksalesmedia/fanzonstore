@@ -30,7 +30,7 @@ function ShopGridFallback() {
 export default async function ShopPage() {
   const [catalog, bundles] = await Promise.all([getCatalog(), getBundles()]);
   // Bundles (matching sets) lead the grid, then the rest of the catalog.
-  const products = [...bundles.map(bundleToProductCard), ...catalog];
+  const products = [...bundles.map((bundle) => bundleToProductCard(bundle)), ...catalog];
   return (
     <main className="pt-28 sm:pt-32">
       <Reveal as="header" className="container-page pb-10 text-center">

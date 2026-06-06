@@ -11,6 +11,13 @@ import { Reveal } from "@/components/Reveal";
 import { Button } from "@/components/ui/Button";
 import { ProductGallery } from "@/components/product/ProductGallery";
 
+function selectVariantImage(product: Product, variant: Product["variants"][number]) {
+  const match = product.images?.find((im) =>
+    im.variantIds.includes(variant.printfulVariantId),
+  );
+  return match?.src ?? product.image;
+}
+
 export function ProductDetail({ product }: { product: Product }) {
   const add = useCart((s) => s.add);
 
@@ -57,7 +64,7 @@ export function ProductDetail({ product }: { product: Product }) {
       productId: product.id,
       variantId: variant.id,
       name: product.name,
-      image: product.image,
+      image: selectVariantImage(product, variant),
       price: product.price,
       size: variant.size,
       color: variant.color,
@@ -67,7 +74,7 @@ export function ProductDetail({ product }: { product: Product }) {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-14">
+    <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)] lg:items-start lg:gap-14">
       {/* Gallery */}
       <Reveal>
         <ProductGallery
@@ -80,12 +87,12 @@ export function ProductDetail({ product }: { product: Product }) {
       </Reveal>
 
       {/* Info */}
-      <Reveal delay={0.08} stagger className="flex flex-col">
+      <Reveal delay={0.08} className="flex flex-col">
         <span className="font-sport text-xs uppercase tracking-[0.2em] text-pitch-400">
           {categoryLabels[product.category] ?? product.category}
         </span>
 
-        <h1 className="mt-2 font-display text-4xl leading-[0.95] text-chalk sm:text-5xl">
+        <h1 className="mt-2 text-balance font-display text-4xl leading-[0.95] text-chalk sm:text-5xl">
           {product.name}
         </h1>
 
@@ -218,7 +225,7 @@ export function ProductDetail({ product }: { product: Product }) {
         )}
 
         {/* Qty + Add to bag */}
-        <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-stretch">
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-stretch sm:gap-4">
           <div className="flex h-14 items-center justify-between gap-2 rounded-full border border-white/15 px-2 sm:w-36">
             <button
               type="button"

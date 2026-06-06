@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { fetchPrintifyProduct } from "@/lib/printify";
 
 const toCents = (dollars: unknown) =>
   Math.round((Number(dollars) || 0) * 100);
@@ -73,13 +74,29 @@ function readBundleFields(formData: FormData) {
   const category = String(formData.get("category") ?? "tees").trim();
   const badge = String(formData.get("badge") ?? "").trim();
   const image = String(formData.get("image") ?? "").trim();
-  if (!image) throw new Error("A hero image URL is required");
   const price = toCents(formData.get("price"));
   if (price <= 0) throw new Error("Set price must be greater than 0");
   const compareRaw = String(formData.get("compareAtPrice") ?? "").trim();
   const compareAtPrice = compareRaw ? toCents(compareRaw) : null;
   const active = String(formData.get("active") ?? "") === "on";
   return { name, description, category, badge, image, price, compareAtPrice, active };
+}
+
+async function resolveBundleImage(
+  requestedImage: string,
+  components: ComponentInput[],
+) {
+  if (requestedImage) return requestedImage;
+  const first = components[0];
+  if (!first) return "";
+  const product = await fetchPrintifyProduct(first.productId);
+  const image = product?.image ?? product?.gallery?.[0] ?? "";
+  if (!image) {
+    throw new Error(
+      "A bundle needs a hero image or at least one component with a Printify image.",
+    );
+  }
+  return image;
 }
 
 function bust(slug?: string) {
@@ -98,6 +115,7 @@ export async function createBundle(formData: FormData) {
   if (components.length < 2) {
     throw new Error("A bundle needs at least 2 products.");
   }
+  const image = await resolveBundleImage(fields.image, components);
 
   const slug = await uniqueSlug(fields.name);
   await prisma.bundle.create({
@@ -107,7 +125,7 @@ export async function createBundle(formData: FormData) {
       description: fields.description,
       category: fields.category,
       badge: fields.badge || null,
-      image: fields.image,
+      image,
       price: fields.price,
       compareAtPrice: fields.compareAtPrice,
       active: fields.active,
@@ -131,6 +149,7 @@ export async function updateBundle(formData: FormData) {
   if (components.length < 2) {
     throw new Error("A bundle needs at least 2 products.");
   }
+  const image = await resolveBundleImage(fields.image, components);
 
   const slug = await uniqueSlug(fields.name, id);
   await prisma.bundle.update({
@@ -141,7 +160,7 @@ export async function updateBundle(formData: FormData) {
       description: fields.description,
       category: fields.category,
       badge: fields.badge || null,
-      image: fields.image,
+      image,
       price: fields.price,
       compareAtPrice: fields.compareAtPrice,
       active: fields.active,
