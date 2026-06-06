@@ -189,8 +189,10 @@ export function BundleDetail({
         </div>
       </Reveal>
 
-      {/* Info + per-component pickers */}
-      <Reveal delay={0.08} stagger className="flex flex-col">
+      {/* Info + per-component pickers. NOTE: not wrapped in a staggered Reveal —
+          the scroll-reveal can leave a late child (the Add-to-bag button) stuck
+          at opacity:0. Keep the buy flow always visible. */}
+      <div className="flex flex-col">
         <span className="inline-flex w-fit items-center gap-1.5 font-sport text-xs uppercase tracking-[0.2em] text-pitch-400">
           <Gift className="h-3.5 w-3.5" aria-hidden /> Matching set ·{" "}
           {components.length} pieces
@@ -378,7 +380,7 @@ export function BundleDetail({
             </span>
           </div>
         </div>
-      </Reveal>
+      </div>
     </div>
   );
 }

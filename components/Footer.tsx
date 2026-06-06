@@ -23,7 +23,7 @@ const helpLinks = [
 ];
 
 const companyLinks = [
-  { label: "Our Story", href: "/about" },
+  { label: "Our Story", href: "/our-story" },
   { label: "Collections", href: "/collections" },
   { label: "Sustainability", href: "/sustainability" },
   { label: "Contact", href: "/contact" },

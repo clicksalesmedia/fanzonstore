@@ -11,7 +11,7 @@ import { useMounted } from "@/components/useMounted";
 const links = [
   { label: "Shop", href: "/shop" },
   { label: "Collections", href: "/shop" },
-  { label: "Our Story", href: "/#why" },
+  { label: "Our Story", href: "/our-story" },
 ];
 
 export function Navbar() {
