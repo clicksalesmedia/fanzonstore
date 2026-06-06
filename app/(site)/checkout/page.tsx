@@ -1,45 +1,50 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { CheckCircle2, Loader2, Lock, ShieldCheck } from "lucide-react";
 import { useCart, selectSubtotal } from "@/store/cart";
 import { cn, formatPrice, isPrintifyImage } from "@/lib/utils";
 import { qualifiesForFreeShipping } from "@/lib/pricing";
+import { US_COUNTRY, US_STATES, citiesForState } from "@/lib/us-locations";
 import { Button } from "@/components/ui/Button";
 import { useMounted } from "@/components/useMounted";
 
-type Field = {
-  name: string;
-  label: string;
-  autoComplete: string;
-  required: boolean;
-  type?: string;
-  half?: boolean;
-};
+const OTHER_CITY = "__other__";
 
-const FIELDS: Field[] = [
-  { name: "first_name", label: "First name", autoComplete: "given-name", required: true, half: true },
-  { name: "last_name", label: "Last name", autoComplete: "family-name", required: true, half: true },
-  { name: "email", label: "Email", type: "email", autoComplete: "email", required: true },
-  { name: "phone", label: "Phone (optional)", autoComplete: "tel", required: false },
-  { name: "address1", label: "Address", autoComplete: "address-line1", required: true },
-  { name: "address2", label: "Apt, suite (optional)", autoComplete: "address-line2", required: false },
-  { name: "city", label: "City", autoComplete: "address-level2", required: true, half: true },
-  { name: "region", label: "State / Region", autoComplete: "address-level1", required: false, half: true },
-  { name: "zip", label: "ZIP / Postal code", autoComplete: "postal-code", required: true, half: true },
-  { name: "country", label: "Country (ISO-2, e.g. US)", autoComplete: "country", required: true, half: true },
-];
+const inputClass =
+  "h-11 w-full rounded-xl border border-white/12 bg-ink-900 px-4 text-sm text-chalk outline-none transition-colors placeholder:text-mist/50 focus:border-pitch-400 focus-visible:ring-2 focus-visible:ring-pitch-400/40";
+const labelClass =
+  "mb-1.5 block font-sport text-[0.7rem] uppercase tracking-wider text-mist";
 
 export default function CheckoutPage() {
   const lines = useCart((s) => s.lines);
   const clear = useCart((s) => s.clear);
   const subtotal = useCart(selectSubtotal);
   const mounted = useMounted();
+
+  // Controlled address state (country is fixed to the US).
+  const [stateCode, setStateCode] = useState("");
+  const [cityChoice, setCityChoice] = useState("");
+  const [cityOther, setCityOther] = useState("");
+  const cityValue = cityChoice === OTHER_CITY ? cityOther : cityChoice;
+  const cities = useMemo(() => citiesForState(stateCode), [stateCode]);
+
+  const [stripeReturn] = useState(() => {
+    if (typeof window === "undefined") return { success: false, canceled: false };
+    const params = new URLSearchParams(window.location.search);
+    return {
+      success: params.get("success") === "1",
+      canceled: params.get("canceled") === "1",
+    };
+  });
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ orderId: string; sentToProduction: boolean } | null>(null);
+  const [error, setError] = useState<string | null>(
+    stripeReturn.canceled
+      ? "Payment was canceled. Your cart is still here when you're ready."
+      : null,
+  );
 
   // Live shipping quote (cents) from Printify, fetched once a destination is
   // entered. null = not yet quoted ("calculated at checkout").
@@ -54,16 +59,25 @@ export default function CheckoutPage() {
   const shipping = effectiveShipCents == null ? null : effectiveShipCents / 100;
   const total = subtotal + (shipping ?? 0);
 
-  // Debounced shipping quote whenever the address (esp. country + zip) changes.
+  useEffect(() => {
+    if (stripeReturn.success) {
+      clear();
+    }
+    if (stripeReturn.success || stripeReturn.canceled) {
+      window.history.replaceState(null, "", "/checkout");
+    }
+  }, [clear, stripeReturn]);
+
+  // Debounced shipping quote whenever the destination (state + zip) changes.
   function requestQuote(formEl: HTMLFormElement) {
     const data = Object.fromEntries(new FormData(formEl).entries());
-    const country = String(data.country ?? "").trim();
     const zip = String(data.zip ?? "").trim();
+    const region = String(data.region ?? "").trim();
     if (freeShipping) {
       setShipCents(0);
       return;
     }
-    if (!country || !zip || lines.length === 0) {
+    if (!region || !zip || lines.length === 0) {
       setShipCents(null);
       return;
     }
@@ -79,7 +93,7 @@ export default function CheckoutPage() {
           headers: { "Content-Type": "application/json" },
           signal: ac.signal,
           body: JSON.stringify({
-            address: { ...data, country: country.toUpperCase() },
+            address: { ...data, country: US_COUNTRY.code },
             items: lines.map((l) => ({
               productId: l.productId,
               variantId: l.variantId,
@@ -97,7 +111,7 @@ export default function CheckoutPage() {
       } finally {
         setQuoting(false);
       }
-    }, 600);
+    }, 500);
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -111,7 +125,7 @@ export default function CheckoutPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          address: { ...address, country: String(address.country).toUpperCase() },
+          address: { ...address, country: US_COUNTRY.code },
           items: lines.map((l) => ({
             productId: l.productId,
             variantId: l.variantId,
@@ -126,8 +140,8 @@ export default function CheckoutPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Checkout failed");
-      setDone({ orderId: data.orderId, sentToProduction: data.sentToProduction });
-      clear();
+      if (!data.checkoutUrl) throw new Error("Stripe did not return a checkout URL.");
+      window.location.assign(data.checkoutUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Checkout failed");
     } finally {
@@ -135,17 +149,14 @@ export default function CheckoutPage() {
     }
   }
 
-  if (done) {
+  if (stripeReturn.success) {
     return (
       <main className="container-page flex min-h-[70vh] flex-col items-center justify-center py-24 text-center">
         <CheckCircle2 className="size-16 text-pitch-400" aria-hidden />
-        <h1 className="font-display mt-6 text-4xl text-chalk sm:text-5xl">Order placed</h1>
+        <h1 className="font-display mt-6 text-4xl text-chalk sm:text-5xl">Payment received</h1>
         <p className="mt-4 max-w-md text-mist">
-          Your Printify order <span className="font-sport text-pitch-300">{done.orderId}</span> was
-          created.{" "}
-          {done.sentToProduction
-            ? "It has been sent to production."
-            : "It is awaiting review in the Printify dashboard before production."}
+          Stripe confirmed your payment. Your order is being prepared and will be
+          synced into Printify automatically.
         </p>
         <Link href="/shop" className="mt-8">
           <Button variant="primary" size="lg">Keep shopping</Button>
@@ -173,34 +184,137 @@ export default function CheckoutPage() {
         <form
           onSubmit={onSubmit}
           onChange={(e) => requestQuote(e.currentTarget)}
-          className="order-2 lg:order-1"
+          className="order-2 space-y-5 lg:order-1"
         >
-          <h2 className="font-sport text-sm uppercase tracking-wider text-pitch-300">
-            Shipping details
-          </h2>
-          <div className="mt-6 grid grid-cols-2 gap-4">
-            {FIELDS.map((f) => (
-              <div key={f.name} className={f.half ? "col-span-1" : "col-span-2"}>
-                <label
-                  htmlFor={f.name}
-                  className="mb-1.5 block font-sport text-[0.7rem] uppercase tracking-wider text-mist"
-                >
-                  {f.label}
-                </label>
-                <input
-                  id={f.name}
-                  name={f.name}
-                  type={f.type ?? "text"}
-                  autoComplete={f.autoComplete}
-                  required={f.required}
-                  className="h-11 w-full rounded-xl border border-white/12 bg-ink-900 px-4 text-sm text-chalk outline-none transition-colors placeholder:text-mist/50 focus:border-pitch-400 focus-visible:ring-2 focus-visible:ring-pitch-400/40"
-                />
+          <input type="hidden" name="country" value={US_COUNTRY.code} />
+
+          <div className="flex items-center justify-between">
+            <h2 className="font-sport text-sm uppercase tracking-wider text-pitch-300">
+              Shipping details
+            </h2>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-ink-900 px-3 py-1 font-sport text-[0.7rem] uppercase tracking-wider text-mist">
+              <span aria-hidden>🇺🇸</span> Ships to {US_COUNTRY.name}
+            </span>
+          </div>
+
+          {/* Name */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="first_name" className={labelClass}>First name</label>
+              <input id="first_name" name="first_name" autoComplete="given-name" required className={inputClass} />
+            </div>
+            <div>
+              <label htmlFor="last_name" className={labelClass}>Last name</label>
+              <input id="last_name" name="last_name" autoComplete="family-name" required className={inputClass} />
+            </div>
+          </div>
+
+          {/* Contact */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="email" className={labelClass}>Email</label>
+              <input id="email" name="email" type="email" autoComplete="email" required className={inputClass} />
+            </div>
+            <div>
+              <label htmlFor="phone" className={labelClass}>Phone (optional)</label>
+              <input id="phone" name="phone" autoComplete="tel" className={inputClass} />
+            </div>
+          </div>
+
+          {/* Street */}
+          <div>
+            <label htmlFor="address1" className={labelClass}>Street address</label>
+            <input id="address1" name="address1" autoComplete="address-line1" required className={inputClass} />
+          </div>
+          <div>
+            <label htmlFor="address2" className={labelClass}>Apt, suite (optional)</label>
+            <input id="address2" name="address2" autoComplete="address-line2" className={inputClass} />
+          </div>
+
+          {/* State + City */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="region" className={labelClass}>State</label>
+              <select
+                id="region"
+                name="region"
+                required
+                value={stateCode}
+                onChange={(e) => {
+                  setStateCode(e.target.value);
+                  setCityChoice("");
+                  setCityOther("");
+                }}
+                className={cn(inputClass, stateCode ? "" : "text-mist/60")}
+              >
+                <option value="" disabled>Select state</option>
+                {US_STATES.map((s) => (
+                  <option key={s.code} value={s.code} className="text-ink-950">
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="city_select" className={labelClass}>City</label>
+              <select
+                id="city_select"
+                disabled={!stateCode}
+                value={cityChoice}
+                onChange={(e) => setCityChoice(e.target.value)}
+                className={cn(inputClass, "disabled:opacity-50", cityChoice ? "" : "text-mist/60")}
+              >
+                <option value="" disabled>
+                  {stateCode ? "Select city" : "Pick a state first"}
+                </option>
+                {cities.map((c) => (
+                  <option key={c} value={c} className="text-ink-950">{c}</option>
+                ))}
+                <option value={OTHER_CITY} className="text-ink-950">Other…</option>
+              </select>
+            </div>
+          </div>
+
+          {/* "Other" free-text city */}
+          {cityChoice === OTHER_CITY && (
+            <div>
+              <label htmlFor="city_other" className={labelClass}>Enter your city</label>
+              <input
+                id="city_other"
+                value={cityOther}
+                onChange={(e) => setCityOther(e.target.value)}
+                autoComplete="address-level2"
+                required
+                className={inputClass}
+              />
+            </div>
+          )}
+          {/* Authoritative city value submitted with the form */}
+          <input type="hidden" name="city" value={cityValue} />
+
+          {/* ZIP + Country */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="zip" className={labelClass}>ZIP code</label>
+              <input
+                id="zip"
+                name="zip"
+                inputMode="numeric"
+                autoComplete="postal-code"
+                required
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Country</label>
+              <div className={cn(inputClass, "flex items-center text-mist")}>
+                {US_COUNTRY.name}
               </div>
-            ))}
+            </div>
           </div>
 
           {error && (
-            <p className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
               {error}
             </p>
           )}
@@ -210,21 +324,21 @@ export default function CheckoutPage() {
             variant="primary"
             size="lg"
             disabled={submitting}
-            className="mt-6 w-full"
+            className="w-full"
           >
             {submitting ? (
               <>
-                <Loader2 className="size-4 animate-spin" aria-hidden /> Placing order…
+                <Loader2 className="size-4 animate-spin" aria-hidden /> Opening payment…
               </>
             ) : (
               <>
-                <Lock className="size-4" aria-hidden /> Place order · {formatPrice(total)}
+                <Lock className="size-4" aria-hidden /> Pay securely · {formatPrice(total)}
               </>
             )}
           </Button>
-          <p className="mt-3 flex items-center gap-2 text-xs text-mist">
+          <p className="flex items-center gap-2 text-xs text-mist">
             <ShieldCheck className="size-3.5 text-pitch-400" aria-hidden />
-            Your order is placed securely. Connect a payment provider to charge cards.
+            Card payment is processed by Stripe before the order is sent to Printify.
           </p>
         </form>
 

@@ -42,3 +42,10 @@ next-env.d.ts
 
 # editor screenshots
 Screenshot*.png
+
+# deploy tooling & skills — local only, never committed or deployed
+.deploy.env
+.deploy.env.example
+/DEPLOY.md
+/scripts/deploy.sh
+.claude/

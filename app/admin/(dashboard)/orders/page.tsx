@@ -9,6 +9,8 @@ const money = (cents: number, currency = "USD") =>
   );
 
 const statusStyles: Record<string, string> = {
+  PAYMENT_PENDING: "bg-yellow-500/15 text-yellow-300",
+  PAYMENT_FAILED: "bg-red-500/15 text-red-300",
   PENDING: "bg-amber-500/15 text-amber-300",
   ON_HOLD: "bg-sky-500/15 text-sky-300",
   IN_PRODUCTION: "bg-violet-500/15 text-violet-300",
@@ -23,7 +25,10 @@ export default async function AdminOrdersPage() {
       include: { _count: { select: { items: true } } },
       take: 100,
     }),
-    prisma.order.aggregate({ _sum: { total: true }, _count: true }),
+    prisma.order.aggregate({
+      where: { paidAt: { not: null } },
+      _sum: { total: true },
+    }),
   ]);
 
   return (
@@ -32,8 +37,8 @@ export default async function AdminOrdersPage() {
         <div>
           <h1 className="text-2xl font-bold">Orders</h1>
           <p className="mt-1 text-sm text-neutral-400">
-            {totals._count} order{totals._count === 1 ? "" : "s"} ·{" "}
-            {money(totals._sum.total ?? 0)} total
+            {orders.length} order{orders.length === 1 ? "" : "s"} ·{" "}
+            {money(totals._sum.total ?? 0)} paid revenue
           </p>
         </div>
       </div>

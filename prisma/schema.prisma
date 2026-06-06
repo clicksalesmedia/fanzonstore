@@ -14,6 +14,8 @@ enum Role {
 }
 
 enum OrderStatus {
+  PAYMENT_PENDING
+  PAYMENT_FAILED
   PENDING // created in our store, not yet sent to production
   ON_HOLD // created in Printify, awaiting review
   IN_PRODUCTION
@@ -32,29 +34,34 @@ model User {
 }
 
 model Order {
-  id              String      @id @default(cuid())
+  id                      String      @id @default(cuid())
   /// external id we send to Printify (fanzonstore-<ts>)
-  externalId      String      @unique
+  externalId              String      @unique
   /// Printify order id once created
-  printifyOrderId String?     @unique
-  status          OrderStatus @default(PENDING)
+  printifyOrderId         String?     @unique
+  /// Stripe Checkout Session id for card payment
+  stripeCheckoutSessionId String?     @unique
+  /// Stripe PaymentIntent id once payment succeeds
+  stripePaymentIntentId   String?     @unique
+  paidAt                  DateTime?
+  status                  OrderStatus @default(PENDING)
 
   // customer / shipping snapshot
-  email      String
-  firstName  String
-  lastName   String
-  phone      String?
-  country    String
-  region     String?
-  address1   String
-  address2   String?
-  city       String
-  zip        String
+  email     String
+  firstName String
+  lastName  String
+  phone     String?
+  country   String
+  region    String?
+  address1  String
+  address2  String?
+  city      String
+  zip       String
 
-  subtotal   Int // cents
-  shipping   Int    @default(0) // cents
-  total      Int // cents
-  currency   String @default("USD")
+  subtotal Int // cents
+  shipping Int    @default(0) // cents
+  total    Int // cents
+  currency String @default("USD")
 
   items     OrderItem[]
   createdAt DateTime    @default(now())
@@ -65,8 +72,8 @@ model Order {
 }
 
 model OrderItem {
-  id        String  @id @default(cuid())
-  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  id        String @id @default(cuid())
+  order     Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
   orderId   String
   productId String // Printify product id
   variantId String // Printify variant id

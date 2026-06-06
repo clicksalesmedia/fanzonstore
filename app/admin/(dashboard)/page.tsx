@@ -11,9 +11,15 @@ const money = (cents: number) =>
   );
 
 export default async function AdminDashboardPage() {
-  const [agg, pending, recent, products] = await Promise.all([
-    prisma.order.aggregate({ _sum: { total: true }, _count: true }),
-    prisma.order.count({ where: { status: "PENDING" } }),
+  const [paidAgg, orderCount, pending, recent, products] = await Promise.all([
+    prisma.order.aggregate({
+      where: { paidAt: { not: null } },
+      _sum: { total: true },
+    }),
+    prisma.order.count(),
+    prisma.order.count({
+      where: { status: { in: ["PAYMENT_PENDING", "PENDING"] } },
+    }),
     prisma.order.findMany({
       orderBy: { createdAt: "desc" },
       take: 5,
@@ -25,13 +31,13 @@ export default async function AdminDashboardPage() {
   const stats = [
     {
       label: "Revenue",
-      value: money(agg._sum.total ?? 0),
+      value: money(paidAgg._sum.total ?? 0),
       icon: DollarSign,
       accent: "text-emerald-400",
     },
     {
       label: "Orders",
-      value: String(agg._count),
+      value: String(orderCount),
       icon: ShoppingBag,
       accent: "text-sky-400",
       href: "/admin/orders",

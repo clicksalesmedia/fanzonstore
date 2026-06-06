@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { OrderStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { US_STATE_NAMES } from "@/lib/us-locations";
 import { updateOrderStatus } from "../../order-actions";
 
 export const dynamic = "force-dynamic";
@@ -38,6 +39,21 @@ export default async function OrderDetailPage({
         {order.printifyOrderId && (
           <p className="mt-1 text-sm text-neutral-500">
             Printify ID: {order.printifyOrderId}
+          </p>
+        )}
+        {order.stripeCheckoutSessionId && (
+          <p className="mt-1 text-sm text-neutral-500">
+            Stripe checkout: {order.stripeCheckoutSessionId}
+          </p>
+        )}
+        {order.stripePaymentIntentId && (
+          <p className="mt-1 text-sm text-neutral-500">
+            Stripe payment: {order.stripePaymentIntentId}
+          </p>
+        )}
+        {order.paidAt && (
+          <p className="mt-1 text-sm text-emerald-400">
+            Paid {order.paidAt.toLocaleString("en-US")}
           </p>
         )}
       </div>
@@ -133,7 +149,10 @@ export default async function OrderDetailPage({
               {order.address2 ? `, ${order.address2}` : ""}
               <br />
               {order.city}
-              {order.region ? `, ${order.region}` : ""} {order.zip}
+              {order.region
+                ? `, ${US_STATE_NAMES[order.region] ?? order.region}`
+                : ""}{" "}
+              {order.zip}
               <br />
               {order.country}
             </address>
