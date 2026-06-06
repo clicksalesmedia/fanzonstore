@@ -238,6 +238,53 @@ function emotionalDescription(p: PFProduct, category: string, displayName: strin
   return `${displayName} is a ${categoryCopy[category] ?? categoryCopy.tees}${material}. Made for ${audience} who want more than merch: a piece of the 2026 soccer moment, a way to belong, and a reason to say you were there.`;
 }
 
+/**
+ * Resolve each variant's color + size from Printify's OPTION definitions rather
+ * than by splitting the title positionally. Different products order the title
+ * differently ("White / S" vs "XL / White"), so a positional split mislabels
+ * color as size and vice-versa. Here we map each variant's option value ids to
+ * the color option (type "color") and treat every other option as size.
+ */
+function resolveVariantAttrs(
+  p: PFProduct,
+): Map<number, { color: string; size: string; hex: string }> {
+  const colorOption = p.options.find((o) => o.type === "color");
+  const colorVals = new Map<number, { title: string; hex: string }>();
+  colorOption?.values.forEach((v) =>
+    colorVals.set(v.id, { title: v.title, hex: v.colors?.[0] ?? "#1b302d" }),
+  );
+  // Any option that isn't the color option contributes the "size" value
+  // (apparel is normally color + size; this is order-independent).
+  const sizeVals = new Map<number, string>();
+  for (const o of p.options) {
+    if (o === colorOption) continue;
+    o.values.forEach((v) => sizeVals.set(v.id, v.title));
+  }
+
+  const out = new Map<number, { color: string; size: string; hex: string }>();
+  for (const v of p.variants) {
+    let color = "Default";
+    let hex = "#1b302d";
+    let size = "";
+    for (const oid of v.options ?? []) {
+      const c = colorVals.get(oid);
+      if (c) {
+        color = c.title;
+        hex = c.hex;
+      }
+      const s = sizeVals.get(oid);
+      if (s !== undefined) size = s;
+    }
+    // Fallback to title split only when options didn't resolve (rare).
+    if (!size) {
+      const parts = v.title.split(" / ").map((s) => s.trim());
+      size = parts.length > 1 ? parts[parts.length - 1] : parts[0] || "One Size";
+    }
+    out.set(v.id, { color, size, hex });
+  }
+  return out;
+}
+
 export function mapProduct(p: PFProduct): Product {
   const category = tag(p.tags ?? [], "category") ?? inferCategory(p);
   const badge = tag(p.tags ?? [], "badge") as Product["badge"] | undefined;
@@ -246,28 +293,20 @@ export function mapProduct(p: PFProduct): Product {
   const enabled = p.variants.filter((v) => v.is_enabled);
   const source = enabled.length ? enabled : p.variants;
 
-  // color hexes from the color option
-  const colorOption = p.options.find((o) => o.type === "color");
-  const colorHex = new Map<string, string>();
-  colorOption?.values.forEach((v) => {
-    if (v.colors?.[0]) colorHex.set(v.title.toLowerCase(), v.colors[0]);
-  });
+  const attrs = resolveVariantAttrs(p);
 
   const sizes: string[] = [];
   const colors: { name: string; hex: string }[] = [];
   const variants: ProductVariant[] = source.map((v) => {
-    const parts = v.title.split(" / ").map((s) => s.trim());
-    const hasColor = parts.length > 1;
-    const color = hasColor ? parts[0] : "Default";
-    const size = hasColor ? parts[parts.length - 1] : parts[0];
-    if (!sizes.includes(size)) sizes.push(size);
-    const hex = colorHex.get(color.toLowerCase()) ?? "#1b302d";
-    if (!colors.some((c) => c.name === color)) colors.push({ name: color, hex });
+    const a = attrs.get(v.id) ?? { color: "Default", size: "One Size", hex: "#1b302d" };
+    if (!sizes.includes(a.size)) sizes.push(a.size);
+    if (!colors.some((c) => c.name === a.color))
+      colors.push({ name: a.color, hex: a.hex });
     return {
       id: String(v.id),
-      size,
-      color,
-      hex,
+      size: a.size,
+      color: a.color,
+      hex: a.hex,
       printfulVariantId: v.id,
     };
   });
@@ -471,28 +510,16 @@ export interface AdminProductSummary {
   enabledCount: number;
 }
 
-function colorHexMap(p: PFProduct): Map<string, string> {
-  const colorOption = p.options.find((o) => o.type === "color");
-  const m = new Map<string, string>();
-  colorOption?.values.forEach((v) => {
-    if (v.colors?.[0]) m.set(v.title.toLowerCase(), v.colors[0]);
-  });
-  return m;
-}
-
 function toAdminVariants(p: PFProduct): AdminVariant[] {
-  const hex = colorHexMap(p);
+  const attrs = resolveVariantAttrs(p);
   return p.variants.map((v) => {
-    const parts = v.title.split(" / ").map((s) => s.trim());
-    const hasColor = parts.length > 1;
-    const color = hasColor ? parts[0] : "Default";
-    const size = hasColor ? parts[parts.length - 1] : parts[0];
+    const a = attrs.get(v.id) ?? { color: "Default", size: "One Size", hex: "#1b302d" };
     return {
       id: v.id,
       title: v.title,
-      color,
-      size,
-      hex: hex.get(color.toLowerCase()) ?? "#1b302d",
+      color: a.color,
+      size: a.size,
+      hex: a.hex,
       price: v.price,
       cost: v.cost ?? 0,
       isEnabled: v.is_enabled,

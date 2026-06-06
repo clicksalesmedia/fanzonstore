@@ -9,7 +9,7 @@ import type {
   Product,
   ProductVariant,
 } from "@/lib/types";
-import { cn, formatPrice, isPrintifyImage } from "@/lib/utils";
+import { cn, formatPrice } from "@/lib/utils";
 import { useCart } from "@/store/cart";
 import { Reveal } from "@/components/Reveal";
 import { Button } from "@/components/ui/Button";
@@ -159,12 +159,7 @@ export function BundleDetail({
               fill
               sizes="(max-width: 1024px) 100vw, 50vw"
               priority
-              className={cn(
-                "object-center",
-                isPrintifyImage(bundle.image)
-                  ? "object-contain p-6"
-                  : "object-cover",
-              )}
+              className="object-cover object-center"
             />
             {badge && (
               <div className="absolute left-4 top-4 z-10">
@@ -183,12 +178,7 @@ export function BundleDetail({
                   alt={`${c.label} — ${c.product.name}`}
                   fill
                   sizes="(max-width: 1024px) 50vw, 25vw"
-                  className={cn(
-                    "object-center",
-                    isPrintifyImage(c.product.image)
-                      ? "object-contain p-4"
-                      : "object-cover",
-                  )}
+                  className="object-cover object-center"
                 />
                 <span className="absolute bottom-2 left-2 rounded-full bg-ink-950/75 px-2.5 py-1 font-sport text-[10px] font-semibold uppercase tracking-wider text-pitch-300 backdrop-blur">
                   {c.label}
