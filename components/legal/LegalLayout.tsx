@@ -7,6 +7,9 @@ export const SITE = {
   url: "https://fanzonstore.com",
   legalEmail: "support@fanzonstore.com",
   privacyEmail: "privacy@fanzonstore.com",
+  /** Legal entity that owns and operates the Fanzonstore brand */
+  company: "ClickSalesMedia LLC FZ",
+  companyLocation: "Dubai, United Arab Emirates",
 } as const;
 
 const legalLinks = [

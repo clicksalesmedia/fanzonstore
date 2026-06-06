@@ -23,11 +23,12 @@ export default function PrivacyPage() {
     >
       <h2>1. Who we are</h2>
       <p>
-        {SITE.brand} operates the online store at{" "}
-        <a href={SITE.url}>{SITE.domain}</a>, selling fan apparel and accessories
+        {SITE.brand} is a brand owned and operated by {SITE.company}, a company
+        registered in {SITE.companyLocation}. {SITE.company} runs the online store
+        at <a href={SITE.url}>{SITE.domain}</a>, selling fan apparel and accessories
         on a print-on-demand basis. For any privacy question you can reach us at{" "}
-        <a href={`mailto:${SITE.privacyEmail}`}>{SITE.privacyEmail}</a>. We are the
-        data controller responsible for your personal information.
+        <a href={`mailto:${SITE.privacyEmail}`}>{SITE.privacyEmail}</a>. {SITE.company}{" "}
+        is the data controller responsible for your personal information.
       </p>
 
       <h2>2. Information we collect</h2>

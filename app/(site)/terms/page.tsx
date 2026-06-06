@@ -22,9 +22,10 @@ export default function TermsPage() {
     >
       <h2>1. About us</h2>
       <p>
-        {SITE.domain} is an independent fan store operated by {SITE.brand}. We sell
-        apparel and accessories on a print-on-demand basis. You can contact us at{" "}
-        <a href={`mailto:${SITE.legalEmail}`}>{SITE.legalEmail}</a>.
+        {SITE.domain} is an independent fan store operated under the {SITE.brand}{" "}
+        brand by {SITE.company}, a company registered in {SITE.companyLocation}. We
+        sell apparel and accessories on a print-on-demand basis. You can contact us
+        at <a href={`mailto:${SITE.legalEmail}`}>{SITE.legalEmail}</a>.
       </p>
 
       <h2>2. Not an official / affiliated store</h2>
@@ -110,9 +111,10 @@ export default function TermsPage() {
 
       <h2>11. Governing law</h2>
       <p>
-        These terms are governed by the laws applicable at our place of business,
-        and any disputes will be subject to the courts of that jurisdiction, without
-        affecting any mandatory consumer protections available to you locally.
+        These terms are governed by the laws of {SITE.companyLocation}, the place of
+        business of {SITE.company}, and any disputes will be subject to the courts of
+        that jurisdiction, without affecting any mandatory consumer protections
+        available to you locally.
       </p>
 
       <h2>12. Changes to these terms</h2>
