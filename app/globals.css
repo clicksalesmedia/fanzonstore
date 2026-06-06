@@ -1,26 +1,184 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+  WORLD CUP 2026 — POD Store design tokens
+  Style: premium "stadium night" — ink base, liquid-glass surfaces,
+  electric pitch-green energy + tournament gold accent.
+*/
+
+@theme {
+  /* Brand palette */
+  --color-ink-950: #060a0a;
+  --color-ink-900: #0a1212;
+  --color-ink-850: #0e1a19;
+  --color-ink-800: #122220;
+  --color-ink-700: #1b302d;
+  --color-ink-600: #294743;
+
+  --color-pitch-50: #e7fff4;
+  --color-pitch-300: #5cf0a8;
+  --color-pitch-400: #18e08a;
+  --color-pitch-500: #00c46f;
+  --color-pitch-600: #00a85e;
+
+  --color-gold-300: #ffe39a;
+  --color-gold-400: #f5c451;
+  --color-gold-500: #e0a92e;
+
+  --color-chalk: #f4f7f5;
+  --color-mist: #b8c6c2;
+
+  /* Semantic */
+  --color-background: var(--color-ink-950);
+  --color-surface: var(--color-ink-900);
+  --color-foreground: var(--color-chalk);
+  --color-muted: var(--color-mist);
+  --color-primary: var(--color-pitch-400);
+  --color-accent: var(--color-gold-400);
+
+  /* Fonts (wired in layout.tsx via next/font) */
+  --font-display: var(--font-anton);
+  --font-mono-sport: var(--font-chakra);
+  --font-sans: var(--font-inter);
+
+  /* Easing */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+  }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  body {
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans), system-ui, sans-serif;
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    background: var(--color-pitch-400);
+    color: var(--color-ink-950);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  .container-page {
+    width: 100%;
+    max-width: 80rem;
+    margin-inline: auto;
+    padding-inline: 1.25rem;
+  }
+  @media (min-width: 1024px) {
+    .container-page { padding-inline: 2rem; }
+  }
+
+  /* Athletic display heading */
+  .font-display {
+    font-family: var(--font-display), Impact, sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.01em;
+    line-height: 0.92;
+  }
+
+  /* Sporty label (jersey numbers, eyebrows, prices) */
+  .font-sport {
+    font-family: var(--font-mono-sport), monospace;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+
+  /* Liquid glass surface */
+  .glass {
+    background: linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.07),
+      rgba(255, 255, 255, 0.02)
+    );
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  /* Gradient text */
+  .text-gradient-pitch {
+    background: linear-gradient(100deg, var(--color-pitch-300), var(--color-gold-300));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Pitch glow */
+  .glow-pitch {
+    box-shadow: 0 0 0 1px rgba(24, 224, 138, 0.3),
+      0 10px 40px -10px rgba(0, 196, 111, 0.45);
+  }
+
+  /* Long-form legal / policy typography */
+  .legal-prose {
+    color: var(--color-mist);
+    line-height: 1.7;
+    font-size: 0.95rem;
+  }
+  .legal-prose h2 {
+    font-family: var(--font-display), Impact, sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.01em;
+    color: var(--color-chalk);
+    font-size: 1.5rem;
+    line-height: 1.1;
+    margin-top: 2.5rem;
+    margin-bottom: 0.85rem;
+    scroll-margin-top: 6rem;
+  }
+  .legal-prose h2:first-child { margin-top: 0; }
+  .legal-prose h3 {
+    color: var(--color-chalk);
+    font-weight: 600;
+    font-size: 1.05rem;
+    margin-top: 1.75rem;
+    margin-bottom: 0.5rem;
+  }
+  .legal-prose p { margin-bottom: 1rem; }
+  .legal-prose ul {
+    list-style: disc;
+    padding-left: 1.25rem;
+    margin-bottom: 1rem;
+  }
+  .legal-prose li { margin-bottom: 0.4rem; }
+  .legal-prose li::marker { color: var(--color-pitch-400); }
+  .legal-prose strong { color: var(--color-chalk); font-weight: 600; }
+  .legal-prose a {
+    color: var(--color-pitch-300);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    transition: color 0.2s;
+  }
+  .legal-prose a:hover { color: var(--color-pitch-400); }
+}
+
+/* Utilities */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marquee 28s linear infinite;
+}
+.animate-marquee:hover {
+  animation-play-state: paused;
 }
