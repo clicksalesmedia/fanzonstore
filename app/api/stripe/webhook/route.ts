@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@/lib/db";
 import {
+  metaEventId,
+  orderItemsToMetaCustomData,
+  sendMetaEvent,
+} from "@/lib/meta";
+import {
   createPrintifyOrder,
   printifyConfigured,
   type OrderLineItem,
@@ -46,6 +51,27 @@ async function fulfillPaidCheckout(session: Stripe.Checkout.Session) {
     stripePaymentIntentId: paymentIntentId(session) ?? null,
     paidAt: new Date(),
   };
+
+  if (!order.paidAt) {
+    await sendMetaEvent({
+      eventName: "Purchase",
+      eventId: metaEventId("Purchase", order.id),
+      eventSourceUrl: `${
+        process.env.NEXT_PUBLIC_SITE_URL || "https://fanzonstore.com"
+      }/checkout`,
+      userData: {
+        email: order.email,
+        phone: order.phone,
+        firstName: order.firstName,
+        lastName: order.lastName,
+        city: order.city,
+        state: order.region,
+        zip: order.zip,
+        country: order.country,
+      },
+      customData: orderItemsToMetaCustomData(order.items, order.total, order.id),
+    });
+  }
 
   if (order.printifyOrderId) {
     await prisma.order.update({

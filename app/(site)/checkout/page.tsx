@@ -6,6 +6,11 @@ import Image from "next/image";
 import { CheckCircle2, Loader2, Lock, ShieldCheck } from "lucide-react";
 import { useCart, selectSubtotal } from "@/store/cart";
 import { cn, formatPrice, isPrintifyImage } from "@/lib/utils";
+import {
+  createMetaEventId,
+  linesToMetaCustomData,
+  trackMetaPixelEvent,
+} from "@/lib/meta-pixel";
 import { qualifiesForFreeShipping } from "@/lib/pricing";
 import { US_COUNTRY, US_STATES, citiesForState } from "@/lib/us-locations";
 import { Button } from "@/components/ui/Button";
@@ -32,11 +37,13 @@ export default function CheckoutPage() {
   const cities = useMemo(() => citiesForState(stateCode), [stateCode]);
 
   const [stripeReturn] = useState(() => {
-    if (typeof window === "undefined") return { success: false, canceled: false };
+    if (typeof window === "undefined")
+      return { success: false, canceled: false, sessionId: null as string | null };
     const params = new URLSearchParams(window.location.search);
     return {
       success: params.get("success") === "1",
       canceled: params.get("canceled") === "1",
+      sessionId: params.get("session_id"),
     };
   });
   const [submitting, setSubmitting] = useState(false);
@@ -52,6 +59,7 @@ export default function CheckoutPage() {
   const [quoting, setQuoting] = useState(false);
   const quoteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const quoteAbort = useRef<AbortController | null>(null);
+  const purchaseTracked = useRef(false);
 
   const subtotalCents = Math.round(subtotal * 100);
   const freeShipping = qualifiesForFreeShipping(subtotalCents);
@@ -67,6 +75,28 @@ export default function CheckoutPage() {
       window.history.replaceState(null, "", "/checkout");
     }
   }, [clear, stripeReturn]);
+
+  useEffect(() => {
+    if (
+      !stripeReturn.success ||
+      !stripeReturn.sessionId ||
+      purchaseTracked.current
+    ) {
+      return;
+    }
+
+    purchaseTracked.current = true;
+    void fetch(
+      `/api/meta/purchase?session_id=${encodeURIComponent(stripeReturn.sessionId)}`,
+    )
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.eventId && data?.customData) {
+          trackMetaPixelEvent("Purchase", data.customData, data.eventId);
+        }
+      })
+      .catch(() => undefined);
+  }, [stripeReturn]);
 
   // Debounced shipping quote whenever the destination (state + zip) changes.
   function requestQuote(formEl: HTMLFormElement) {
@@ -126,6 +156,12 @@ export default function CheckoutPage() {
     setSubmitting(true);
     const form = new FormData(e.currentTarget);
     const address = Object.fromEntries(form.entries());
+    const metaEventId = createMetaEventId("InitiateCheckout");
+    trackMetaPixelEvent(
+      "InitiateCheckout",
+      linesToMetaCustomData(lines, total),
+      metaEventId,
+    );
     try {
       const res = await fetch("/api/checkout", {
         method: "POST",
@@ -143,6 +179,7 @@ export default function CheckoutPage() {
             color: l.color,
             bundle: l.bundle,
           })),
+          metaEventId,
         }),
       });
       const data = await res.json();

@@ -5,6 +5,7 @@ import { Check, ChevronDown, Minus, Plus, Flame, Heart, ShieldCheck } from "luci
 import type { CartLine, Product } from "@/lib/types";
 import { categoryLabels } from "@/lib/products";
 import { cn, formatPrice } from "@/lib/utils";
+import { trackMetaEvent } from "@/lib/meta-pixel";
 import { useCart } from "@/store/cart";
 import { Rating } from "@/components/Rating";
 import { Reveal } from "@/components/Reveal";
@@ -55,6 +56,25 @@ export function ProductDetail({ product }: { product: Product }) {
 
   // Drives which mockups the gallery shows — updates as color/size changes.
   const activeVariant = resolveVariant();
+
+  useEffect(() => {
+    trackMetaEvent("ViewContent", {
+      currency: "USD",
+      value: product.price,
+      content_name: product.name,
+      content_category: product.category,
+      content_type: "product",
+      content_ids: [product.id],
+      contents: [
+        {
+          id: product.id,
+          quantity: 1,
+          item_price: product.price,
+        },
+      ],
+      num_items: 1,
+    });
+  }, [product.category, product.id, product.name, product.price]);
 
   function handleAdd() {
     if (!canAdd) return;

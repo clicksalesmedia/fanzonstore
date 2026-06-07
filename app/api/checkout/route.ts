@@ -9,6 +9,7 @@ import {
 } from "@/lib/printify";
 import { qualifiesForFreeShipping } from "@/lib/pricing";
 import { prisma } from "@/lib/db";
+import { orderItemsToMetaCustomData, sendMetaEvent } from "@/lib/meta";
 import { stripe, stripeConfigured } from "@/lib/stripe";
 import type { BundleComponentSelection } from "@/lib/types";
 
@@ -249,7 +250,11 @@ export async function POST(req: Request) {
     );
   }
 
-  let body: { items?: CheckoutItem[]; address?: ShippingAddress };
+  let body: {
+    items?: CheckoutItem[];
+    address?: ShippingAddress;
+    metaEventId?: string;
+  };
   try {
     body = await req.json();
   } catch {
@@ -356,6 +361,30 @@ export async function POST(req: Request) {
       },
     },
   });
+
+  await sendMetaEvent(
+    {
+      eventName: "InitiateCheckout",
+      eventId: body.metaEventId || `InitiateCheckout:${order.id}`,
+      eventSourceUrl: `${siteOrigin(req)}/checkout`,
+      userData: {
+        email: String(address.email),
+        phone: address.phone ? String(address.phone) : null,
+        firstName: String(address.first_name),
+        lastName: String(address.last_name),
+        city: String(address.city),
+        state: address.region ? String(address.region) : null,
+        zip: String(address.zip),
+        country: String(address.country),
+      },
+      customData: orderItemsToMetaCustomData(
+        orderItems,
+        totalCents,
+        order.id,
+      ),
+    },
+    req,
+  );
 
   try {
     const origin = siteOrigin(req);

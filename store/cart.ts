@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { CartLine } from "@/lib/types";
+import { lineToMetaCustomData, trackMetaEvent } from "@/lib/meta-pixel";
 
 interface CartState {
   lines: CartLine[];
@@ -26,6 +27,7 @@ export const useCart = create<CartState>()(
       toggle: () => set((s) => ({ isOpen: !s.isOpen })),
       add: (line) =>
         set((s) => {
+          trackMetaEvent("AddToCart", lineToMetaCustomData(line));
           const existing = s.lines.find((l) => l.variantId === line.variantId);
           if (existing) {
             return {

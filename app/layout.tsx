@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Anton, Chakra_Petch, Inter } from "next/font/google";
+import { MetaPixel } from "@/components/MetaPixel";
 import "./globals.css";
 
 const inter = Inter({
@@ -66,6 +67,7 @@ export default function RootLayout({
     >
       <body className="min-h-full bg-background text-foreground antialiased">
         {children}
+        <MetaPixel />
       </body>
     </html>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, Gift, ShieldCheck, Truck } from "lucide-react";
 import type {
   BundleComponentSelection,
@@ -10,6 +10,7 @@ import type {
   ProductVariant,
 } from "@/lib/types";
 import { cn, formatPrice } from "@/lib/utils";
+import { trackMetaEvent } from "@/lib/meta-pixel";
 import { useCart } from "@/store/cart";
 import { Reveal } from "@/components/Reveal";
 import { Button } from "@/components/ui/Button";
@@ -113,6 +114,21 @@ export function BundleDetail({
   }
 
   const allReady = components.every((c, i) => componentReady(c, selections[i]));
+
+  useEffect(() => {
+    trackMetaEvent("ViewContent", {
+      currency: "USD",
+      value: bundle.price,
+      content_name: bundle.name,
+      content_type: "product_group",
+      content_ids: components.map((c) => c.product.id),
+      contents: components.map((c) => ({
+        id: c.product.id,
+        quantity: 1,
+      })),
+      num_items: components.length,
+    });
+  }, [bundle.name, bundle.price, components]);
 
   function handleAdd() {
     setAttempted(true);
